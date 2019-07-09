@@ -26,17 +26,22 @@ extension String {
 		return result
 	}
 	
-	func inspectIndentation() -> Int? {
-		guard let index = self.whitespacePrefix.rangeOfCharacter(from: CharacterSet(charactersIn: "\t").inverted)
-			else { return nil }
-		return self.distance(from: self.startIndex, to: index.lowerBound)
+	func fixed() -> String {
+		let whitespacesPrefix = self.whitespacePrefix
+		return whitespacesPrefix
+			.components(separatedBy: "\t")
+			.map({
+				return String(repeating: "\t", count: $0.count / 4)
+			})
+			.joined(separator: "\t") + self[whitespacesPrefix.endIndex...]
+		
 	}
 	
 }
 
-class InspectCommand: Command {
+class FixCommand: Command {
 	
-	let name = "inspect"
+	let name = "fix"
 	let path = OptionalParameter()
 	let ignore = OptionalCollectedParameter()
 	
@@ -71,22 +76,11 @@ class InspectCommand: Command {
 		
 	}
 	
-	///Users/trenskow/Desktop/rindent/Sources/rindent/main.swift:26:100: error: expected '{' after 'if' condition
-	func inspect(file: URL) throws {
-		let data = try String(contentsOf: file)
-		let lines = data.components(separatedBy: .newlines)
-		lines.enumerated().forEach { (line) in
-			if let characterPos = line.element.inspectIndentation() {
-				print("\(file.path):\(line.offset):\(characterPos): warning: Disallowed indentation character.")
-			}
-		}
-	}
-	
-	func execute() throws {
+	func directory(forPath path: String?) -> URL {
 		
 		var directory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 		
-		if let pathUrl = path.value.map(URL.init(fileURLWithPath:)) {
+		if let pathUrl = path.map(URL.init(fileURLWithPath:)) {
 			directory = pathUrl
 		}
 		
@@ -102,8 +96,23 @@ class InspectCommand: Command {
 			exit(1)
 		}
 		
+		return directory
+		
+	}
+	
+	func inspect(file: URL) throws {
+		let data = try String(contentsOf: file)
+		let fixed = data.components(separatedBy: .newlines).map({ $0.fixed() }).joined(separator: "\n")
+		if fixed != data {
+			print("Fixing \(file.path)")
+			try fixed.write(to: file, atomically: true, encoding: .utf8)
+		}
+	}
+	
+	func execute() throws {
+		
 		do {
-			try self.findFiles(url: directory)
+			try self.findFiles(url: self.directory(forPath: self.path.value))
 				.forEach(self.inspect(file:))
 		} catch {
 			print(error.localizedDescription)
@@ -113,7 +122,7 @@ class InspectCommand: Command {
 	}
 }
 
-let inspecter = CLI(name: "inspect")
-inspecter.commands = [InspectCommand()]
+let inspecter = CLI(name: "fix")
+inspecter.commands = [FixCommand()]
 
 exit(inspecter.go())

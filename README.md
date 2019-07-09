@@ -1,10 +1,9 @@
 # rindent
 
-Checks for tabs as indentation in directory. Scans all Swift files.
+Convert space indentation to tabs in Swift project.
 
 Usage:
 
 ```bash
-   swift run rindent inspect [path-to-inspect] [path-to-ignore1, path-to-ignore2, ...]
+   swift run rindent fix [path-to-inspect] [path-to-ignore1, path-to-ignore2, ...]
 ```
-
